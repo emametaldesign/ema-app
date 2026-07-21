@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { DashboardPage } from './pages/DashboardPage'
 import { CalculationPage } from './pages/CalculationPage'
+import { MeasurementPage } from './pages/MeasurementPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 
 export default function App() {
@@ -15,7 +16,7 @@ export default function App() {
         />
         <Route
           path="aufmass"
-          element={<PlaceholderPage eyebrow="Projektaufnahme" title="Aufmaß" description="Aufmaße für neue und bestehende Projekte strukturiert vorbereiten." />}
+          element={<MeasurementPage />}
         />
         <Route
           path="kalkulation"
