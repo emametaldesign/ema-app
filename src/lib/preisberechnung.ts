@@ -20,6 +20,7 @@ export type PreisPosition = {
   form: string
   system: string
   ohneSchwelle: boolean
+  zusatzZuschlag?: number
 }
 
 export type PositionsErgebnis = {
@@ -76,7 +77,8 @@ export function berechnePosition(position: PreisPosition): PositionsErgebnis {
   }
 
   const laufendeMeterProElement = ((position.breiteCm + position.hoeheCm) * 2) / 100
-  const einkaufProElement = rundeGeldbetrag(laufendeMeterProElement * preisProMeter + (position.ohneSchwelle ? ZUSCHLAG_OHNE_SCHWELLE : 0))
+  const zusatzZuschlag = position.zusatzZuschlag && position.zusatzZuschlag > 0 ? position.zusatzZuschlag : 0
+  const einkaufProElement = rundeGeldbetrag(laufendeMeterProElement * preisProMeter + (position.ohneSchwelle ? ZUSCHLAG_OHNE_SCHWELLE : 0) + zusatzZuschlag)
 
   return {
     gueltig: true,
