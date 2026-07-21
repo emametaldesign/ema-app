@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { berechneKalkulation, berechnePosition, ermittlePreisProMeter } from './preisberechnung'
+import { berechneGesamt, berechneKalkulation, berechnePosition, berechneRaum, ermittlePreisProMeter } from './preisberechnung'
 
 describe('EMA-Preisberechnung', () => {
   it('berechnet einen Standardrahmen einschließlich Stückzahl', () => {
@@ -29,5 +29,26 @@ describe('EMA-Preisberechnung', () => {
   it('weist Maße und Faktoren kleiner oder gleich null zurück', () => {
     expect(berechnePosition({ breiteCm: 0, hoeheCm: 100, stueckzahl: 1, form: 'Fenster', system: 'Fest-Rahmen Standard', ohneSchwelle: false }).gueltig).toBe(false)
     expect(berechneKalkulation([{ breiteCm: 100, hoeheCm: 100, stueckzahl: 1, form: 'Fenster', system: 'Economy', ohneSchwelle: false }], 0).gueltig).toBe(false)
+  })
+
+  it('summiert Elemente mit individuellen Multiplikatoren pro Raum', () => {
+    const raum = berechneRaum([
+      { breiteCm: 100, hoeheCm: 100, stueckzahl: 1, form: 'Fenster', system: 'Fest-Rahmen Standard', ohneSchwelle: false, multiplikator: 2 },
+      { breiteCm: 100, hoeheCm: 100, stueckzahl: 1, form: 'Fenster', system: 'Economy-Plissee', ohneSchwelle: false, multiplikator: 3 },
+    ])
+    expect(raum.anzahlElemente).toBe(2)
+    expect(raum.einkaufGesamt).toBe(100)
+    expect(raum.verkaufGesamt).toBe(264)
+    expect(raum.gewinnGesamt).toBe(164)
+  })
+
+  it('summiert Räume und Elemente in der Gesamtübersicht', () => {
+    const position = { breiteCm: 100, hoeheCm: 100, stueckzahl: 1, form: 'Fenster', system: 'Fest-Rahmen Standard', ohneSchwelle: false, multiplikator: 2 }
+    const gesamt = berechneGesamt([[position], [position, position]])
+    expect(gesamt.anzahlRaeume).toBe(2)
+    expect(gesamt.anzahlElemente).toBe(3)
+    expect(gesamt.laufendeMeterGesamt).toBe(12)
+    expect(gesamt.einkaufGesamt).toBe(108)
+    expect(gesamt.verkaufGesamt).toBe(216)
   })
 })

@@ -6,6 +6,9 @@ export const PREISE_PRO_LAUFENDEM_METER = {
   Honeycomb: 22.5,
   Blackout: 17.5,
   Economy: 16,
+  'Wabenplissee (Honeycomb-Plissee)': 22.5,
+  Verdunkelungsplissee: 17.5,
+  'Economy-Plissee': 16,
 } as const
 
 export const ZUSCHLAG_OHNE_SCHWELLE = 10
@@ -34,6 +37,23 @@ export type KalkulationsErgebnis = {
   einkaufGesamt: number
   verkaufGesamt: number
   gewinnGesamt: number
+}
+
+export type PreisPositionMitMultiplikator = PreisPosition & {
+  multiplikator: number
+}
+
+export type ElementErgebnis = PositionsErgebnis & {
+  verkaufGesamt: number
+  gewinnGesamt: number
+}
+
+export type SummenErgebnis = KalkulationsErgebnis & {
+  anzahlElemente: number
+}
+
+export type GesamtErgebnis = SummenErgebnis & {
+  anzahlRaeume: number
 }
 
 export function rundeGeldbetrag(wert: number): number {
@@ -82,6 +102,53 @@ export function berechneKalkulation(positionen: PreisPosition[], multiplikator: 
   return {
     gueltig: true,
     laufendeMeterGesamt,
+    einkaufGesamt,
+    verkaufGesamt,
+    gewinnGesamt: rundeGeldbetrag(verkaufGesamt - einkaufGesamt),
+  }
+}
+
+export function berechneElement(position: PreisPositionMitMultiplikator): ElementErgebnis {
+  const basis = berechnePosition(position)
+  const faktorGueltig = position.multiplikator > 0 && Number.isFinite(position.multiplikator)
+
+  if (!basis.gueltig || !faktorGueltig) {
+    return { ...basis, gueltig: false, verkaufGesamt: 0, gewinnGesamt: 0 }
+  }
+
+  const verkaufGesamt = rundeGeldbetrag(basis.einkaufGesamt * position.multiplikator)
+  return {
+    ...basis,
+    verkaufGesamt,
+    gewinnGesamt: rundeGeldbetrag(verkaufGesamt - basis.einkaufGesamt),
+  }
+}
+
+export function berechneRaum(positionen: PreisPositionMitMultiplikator[]): SummenErgebnis {
+  const ergebnisse = positionen.map(berechneElement)
+  const einkaufGesamt = rundeGeldbetrag(ergebnisse.reduce((summe, ergebnis) => summe + ergebnis.einkaufGesamt, 0))
+  const verkaufGesamt = rundeGeldbetrag(ergebnisse.reduce((summe, ergebnis) => summe + ergebnis.verkaufGesamt, 0))
+
+  return {
+    gueltig: ergebnisse.every((ergebnis) => ergebnis.gueltig),
+    anzahlElemente: positionen.length,
+    laufendeMeterGesamt: ergebnisse.reduce((summe, ergebnis) => summe + ergebnis.laufendeMeterGesamt, 0),
+    einkaufGesamt,
+    verkaufGesamt,
+    gewinnGesamt: rundeGeldbetrag(verkaufGesamt - einkaufGesamt),
+  }
+}
+
+export function berechneGesamt(raeume: PreisPositionMitMultiplikator[][]): GesamtErgebnis {
+  const raumErgebnisse = raeume.map(berechneRaum)
+  const einkaufGesamt = rundeGeldbetrag(raumErgebnisse.reduce((summe, ergebnis) => summe + ergebnis.einkaufGesamt, 0))
+  const verkaufGesamt = rundeGeldbetrag(raumErgebnisse.reduce((summe, ergebnis) => summe + ergebnis.verkaufGesamt, 0))
+
+  return {
+    gueltig: raumErgebnisse.every((ergebnis) => ergebnis.gueltig),
+    anzahlRaeume: raeume.length,
+    anzahlElemente: raumErgebnisse.reduce((summe, ergebnis) => summe + ergebnis.anzahlElemente, 0),
+    laufendeMeterGesamt: raumErgebnisse.reduce((summe, ergebnis) => summe + ergebnis.laufendeMeterGesamt, 0),
     einkaufGesamt,
     verkaufGesamt,
     gewinnGesamt: rundeGeldbetrag(verkaufGesamt - einkaufGesamt),
