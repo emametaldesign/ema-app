@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Calculator, ChevronDown, CirclePlus, FileText, Minus, Plus, RotateCcw, Trash2, Users } from 'lucide-react'
+import { berechneKalkulation, berechnePosition, type PreisPosition } from '../lib/preisberechnung'
 
 const forms = ['Fenster', 'Balkontür', 'Doppelflügel', 'Schiebeanlage', 'Dachfenster', 'Kellerfenster', 'Rundbogen', 'Schräge', 'Dreieck', 'Sonderform']
 const profiles = ['İnce, 25 mm sichtbar und 18 mm tief', 'Kalın, 35 mm sichtbar und 18 mm tief']
@@ -44,6 +45,18 @@ const createElement = (id: number): ElementItem => ({
 
 const inputClass = 'min-h-11 w-full rounded-xl border border-neutral-200 bg-white px-3.5 text-sm text-anthracite outline-none transition placeholder:text-neutral-400 focus:border-orange focus:ring-3 focus:ring-orange/10'
 const labelClass = 'mb-1.5 block text-xs font-bold text-neutral-600'
+const geld = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' })
+
+const alsPreisPosition = (item: ElementItem): PreisPosition => ({
+  breiteCm: Number(item.width),
+  hoeheCm: Number(item.height),
+  stueckzahl: item.quantity,
+  form: item.form,
+  system: item.system,
+  ohneSchwelle: item.noThreshold,
+})
+
+const positiveEingabe = (value: string) => value === '' || Number(value) > 0
 
 function Field({ label, children, className = '' }: { label: string; children: ReactNode; className?: string }) {
   return <label className={className}><span className={labelClass}>{label}</span>{children}</label>
@@ -84,8 +97,8 @@ function ElementCard({ item, index, canRemove, onChange, onRemove }: {
         <Field label="Positionsbezeichnung"><input value={item.position} onChange={(event) => onChange({ position: event.target.value })} placeholder="z. B. Fenster links" className={inputClass} /></Field>
         <Field label="Form"><SelectField ariaLabel="Form" value={item.form} onChange={(form) => onChange({ form })} options={forms} /></Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Breite (cm)"><input type="number" min="0" inputMode="decimal" value={item.width} onChange={(event) => onChange({ width: event.target.value })} placeholder="0" className={inputClass} /></Field>
-          <Field label="Höhe (cm)"><input type="number" min="0" inputMode="decimal" value={item.height} onChange={(event) => onChange({ height: event.target.value })} placeholder="0" className={inputClass} /></Field>
+          <Field label="Breite (cm)"><input type="number" min="0.01" step="0.1" inputMode="decimal" value={item.width} onChange={(event) => positiveEingabe(event.target.value) && onChange({ width: event.target.value })} placeholder="Größer 0" className={inputClass} /></Field>
+          <Field label="Höhe (cm)"><input type="number" min="0.01" step="0.1" inputMode="decimal" value={item.height} onChange={(event) => positiveEingabe(event.target.value) && onChange({ height: event.target.value })} placeholder="Größer 0" className={inputClass} /></Field>
         </div>
 
         <Field label="Stückzahl">
@@ -116,11 +129,12 @@ export function CalculationPage() {
   const [factor, setFactor] = useState<Factor>('3')
   const [customFactor, setCustomFactor] = useState('')
 
-  const runningMeters = useMemo(() => elements.reduce((sum, item) => {
-    const width = Number(item.width) || 0
-    const height = Number(item.height) || 0
-    return sum + ((width + height) * 2 / 100) * item.quantity
-  }, 0), [elements])
+  const multiplier = factor === 'custom' ? Number(customFactor) : Number(factor)
+  const preisPositionen = useMemo(() => elements.map(alsPreisPosition), [elements])
+  const positionsErgebnisse = useMemo(() => preisPositionen.map(berechnePosition), [preisPositionen])
+  const kalkulation = useMemo(() => berechneKalkulation(preisPositionen, multiplier), [preisPositionen, multiplier])
+  const masseVollstaendig = elements.every((item) => Number(item.width) > 0 && Number(item.height) > 0)
+  const faktorGueltig = multiplier > 0 && Number.isFinite(multiplier)
 
   const updateElement = (id: number, patch: Partial<ElementItem>) => setElements((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item))
   const addElement = () => {
@@ -161,17 +175,24 @@ export function CalculationPage() {
       </section>
 
       <section className="rounded-2xl bg-anthracite p-5 text-white shadow-lg sm:p-7">
-        <div className="flex items-center gap-3"><div className="grid size-11 place-items-center rounded-xl bg-orange"><Calculator size={21} /></div><div><h2 className="font-bold">Kalkulationsübersicht</h2><p className="text-xs text-neutral-400">Preislogik folgt in einem separaten Schritt</p></div></div>
+        <div className="flex items-center gap-3"><div className="grid size-11 place-items-center rounded-xl bg-orange"><Calculator size={21} /></div><div><h2 className="font-bold">Kalkulationsübersicht</h2><p className="text-xs text-neutral-400">Interne EMA-Preisberechnung</p></div></div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-xl bg-white/7 p-4"><p className="text-xs font-semibold text-neutral-400">Laufende Meter</p><p className="mt-2 text-2xl font-bold">{runningMeters.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m</p></div>
-          {['Einkaufspreis', 'Verkaufspreis', 'Gewinn'].map((label) => <div key={label} className="rounded-xl bg-white/7 p-4"><p className="text-xs font-semibold text-neutral-400">{label}</p><p className="mt-2 text-2xl font-bold text-neutral-500">— €</p></div>)}
+          <div className="rounded-xl bg-white/7 p-4"><p className="text-xs font-semibold text-neutral-400">Laufende Meter gesamt</p><p className="mt-2 text-2xl font-bold">{kalkulation.laufendeMeterGesamt.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m</p></div>
+          <div className="rounded-xl bg-white/7 p-4"><p className="text-xs font-semibold text-neutral-400">Einkaufspreis gesamt</p><p className="mt-2 text-2xl font-bold">{masseVollstaendig ? geld.format(kalkulation.einkaufGesamt) : '—'}</p></div>
+          <div className="rounded-xl bg-white/7 p-4"><p className="text-xs font-semibold text-neutral-400">Verkaufspreis gesamt</p><p className="mt-2 text-2xl font-bold">{kalkulation.gueltig ? geld.format(kalkulation.verkaufGesamt) : '—'}</p></div>
+          <div className="rounded-xl bg-white/7 p-4"><p className="text-xs font-semibold text-neutral-400">Gesamtgewinn</p><p className={`mt-2 text-2xl font-bold ${kalkulation.gueltig ? 'text-emerald-400' : ''}`}>{kalkulation.gueltig ? geld.format(kalkulation.gewinnGesamt) : '—'}</p></div>
         </div>
-        <div className="mt-5"><p className="mb-2 text-xs font-bold text-neutral-300">Multiplikator</p><div className="flex flex-wrap gap-2">{factors.map((item) => <button key={item} type="button" onClick={() => setFactor(item)} className={`min-h-10 rounded-xl px-4 text-sm font-bold transition ${factor === item ? 'bg-orange text-white' : 'bg-white/8 text-neutral-300 hover:bg-white/12'}`}>{item === 'custom' ? 'Eigener Faktor' : `×${item.replace('.', ',')}`}</button>)}</div>{factor === 'custom' && <input type="number" min="0" step="0.1" value={customFactor} onChange={(event) => setCustomFactor(event.target.value)} placeholder="Faktor eingeben" className="mt-3 min-h-11 w-full max-w-xs rounded-xl border border-white/15 bg-white/8 px-3.5 text-sm text-white outline-none focus:border-orange" />}</div>
+        <div className="mt-5"><p className="mb-2 text-xs font-bold text-neutral-300">Multiplikator</p><div className="flex flex-wrap gap-2">{factors.map((item) => <button key={item} type="button" onClick={() => setFactor(item)} className={`min-h-10 rounded-xl px-4 text-sm font-bold transition ${factor === item ? 'bg-orange text-white' : 'bg-white/8 text-neutral-300 hover:bg-white/12'}`}>{item === 'custom' ? 'Eigener Faktor' : `×${item.replace('.', ',')}`}</button>)}</div>{factor === 'custom' && <div><input type="number" min="0.01" step="0.1" value={customFactor} onChange={(event) => positiveEingabe(event.target.value) && setCustomFactor(event.target.value)} placeholder="Faktor größer 0" aria-invalid={!faktorGueltig} className="mt-3 min-h-11 w-full max-w-xs rounded-xl border border-white/15 bg-white/8 px-3.5 text-sm text-white outline-none focus:border-orange" />{!faktorGueltig && <p className="mt-2 text-xs font-semibold text-red-300">Bitte einen Faktor größer als 0 eingeben.</p>}</div>}</div>
+        {!masseVollstaendig && <p className="mt-5 rounded-xl bg-orange/15 px-4 py-3 text-xs font-semibold text-orange-200">Für jede Position müssen Breite und Höhe größer als 0 sein.</p>}
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
         <div className="border-b border-neutral-100 px-4 py-5 sm:px-6"><h2 className="font-bold text-anthracite">Zusammenfassung</h2><p className="mt-1 text-xs text-neutral-500">Alle erfassten Positionen im Überblick</p></div>
-        <div className="overflow-x-auto"><table className="w-full min-w-[1050px] text-left text-sm"><thead className="bg-neutral-50 text-[11px] uppercase tracking-wide text-neutral-500"><tr>{['Position', 'Maße', 'Anzahl', 'Profil', 'Innenfarbe', 'Außenfarbe', 'System', 'Einkauf', 'Verkauf'].map((heading) => <th key={heading} className="px-4 py-3 font-bold">{heading}</th>)}</tr></thead><tbody className="divide-y divide-neutral-100">{elements.map((item, index) => <tr key={item.id} className="text-neutral-700"><td className="px-4 py-4"><p className="font-bold text-anthracite">{item.position || `Element ${index + 1}`}</p><p className="text-xs text-neutral-500">{item.room || 'Kein Raum'} · {item.form}</p></td><td className="whitespace-nowrap px-4 py-4">{item.width || '—'} × {item.height || '—'} cm</td><td className="px-4 py-4">{item.quantity}</td><td className="max-w-52 px-4 py-4 text-xs">{item.profile}</td><td className="px-4 py-4">{item.colorInside}</td><td className="px-4 py-4">{item.colorOutside}</td><td className="whitespace-nowrap px-4 py-4">{item.system}</td><td className="px-4 py-4 text-neutral-400">— €</td><td className="px-4 py-4 text-neutral-400">— €</td></tr>)}</tbody></table></div>
+        <div className="overflow-x-auto"><table className="w-full min-w-[1050px] text-left text-sm"><thead className="bg-neutral-50 text-[11px] uppercase tracking-wide text-neutral-500"><tr>{['Position', 'Maße', 'Anzahl', 'Profil', 'Innenfarbe', 'Außenfarbe', 'System', 'Einkauf', 'Verkauf'].map((heading) => <th key={heading} className="px-4 py-3 font-bold">{heading}</th>)}</tr></thead><tbody className="divide-y divide-neutral-100">{elements.map((item, index) => {
+          const ergebnis = positionsErgebnisse[index]
+          const einzelKalkulation = berechneKalkulation([preisPositionen[index]], multiplier)
+          return <tr key={item.id} className="text-neutral-700"><td className="px-4 py-4"><p className="font-bold text-anthracite">{item.position || `Element ${index + 1}`}</p><p className="text-xs text-neutral-500">{item.room || 'Kein Raum'} · {item.form}</p></td><td className="whitespace-nowrap px-4 py-4">{item.width || '—'} × {item.height || '—'} cm</td><td className="px-4 py-4">{item.quantity}</td><td className="max-w-52 px-4 py-4 text-xs">{item.profile}</td><td className="px-4 py-4">{item.colorInside}</td><td className="px-4 py-4">{item.colorOutside}</td><td className="whitespace-nowrap px-4 py-4"><p>{item.system}</p>{item.noThreshold && <p className="mt-1 text-xs font-semibold text-orange">+ ohne Schwelle</p>}</td><td className="whitespace-nowrap px-4 py-4 font-semibold">{ergebnis.gueltig ? geld.format(ergebnis.einkaufGesamt) : '—'}</td><td className="whitespace-nowrap px-4 py-4 font-semibold">{einzelKalkulation.gueltig ? geld.format(einzelKalkulation.verkaufGesamt) : '—'}</td></tr>
+        })}</tbody><tfoot className="border-t-2 border-neutral-200 bg-neutral-50 font-bold text-anthracite"><tr><td colSpan={7} className="px-4 py-4 text-right">Gesamtsumme</td><td className="whitespace-nowrap px-4 py-4">{masseVollstaendig ? geld.format(kalkulation.einkaufGesamt) : '—'}</td><td className="whitespace-nowrap px-4 py-4">{kalkulation.gueltig ? geld.format(kalkulation.verkaufGesamt) : '—'}</td></tr></tfoot></table></div>
       </section>
 
       <section className="flex flex-col-reverse gap-3 border-t border-neutral-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
