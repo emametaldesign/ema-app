@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { deleteMeasurement, duplicateMeasurement, loadMeasurements, saveMeasurement, updateMeasurementStatus } from './aufmassSpeicher'
 import { loadCalculation, loadCalculations, saveCalculation } from './kalkulationsSpeicher'
-import { createMeasurementProject } from '../types/project'
+import { createCalculationRecord, createMeasurementProject } from '../types/project'
 
 class MemoryStorage {
   private data = new Map<string, string>()
@@ -44,7 +44,9 @@ describe('lokale EMA-Speicherung', () => {
 
   it('speichert Kalkulationswerte getrennt über die gemeinsame Aufmaß-ID', () => {
     const project = saveMeasurement(createMeasurementProject(), storage)
-    saveCalculation({ measurementId: project.id, settings: { element1: { factor: '4', customFactor: '', surcharge: '12' } }, updatedAt: '' }, storage)
+    const calculation = createCalculationRecord(project.id)
+    calculation.settings.element1 = { factor: '4', customFactor: '', surcharge: '12', deduction: '' }
+    saveCalculation(calculation, storage)
     expect(loadCalculation(project.id, storage)?.settings.element1.factor).toBe('4')
   })
 })

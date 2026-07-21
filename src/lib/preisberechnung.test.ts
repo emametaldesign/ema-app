@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { berechneGesamt, berechneKalkulation, berechnePosition, berechneRaum, ermittlePreisProMeter } from './preisberechnung'
+import { berechneAbschluss, berechneGesamt, berechneKalkulation, berechnePosition, berechneRaum, ermittlePreisProMeter } from './preisberechnung'
 
 describe('EMA-Preisberechnung', () => {
   it('berechnet einen Standardrahmen einschließlich Stückzahl', () => {
@@ -50,5 +50,15 @@ describe('EMA-Preisberechnung', () => {
     expect(gesamt.laufendeMeterGesamt).toBe(12)
     expect(gesamt.einkaufGesamt).toBe(108)
     expect(gesamt.verkaufGesamt).toBe(216)
+  })
+
+  it('berechnet Rabatt, Netto, Steuer und Brutto zentral', () => {
+    const position = { breiteCm: 100, hoeheCm: 100, stueckzahl: 1, form: 'Fenster', system: 'Fest-Rahmen Standard', ohneSchwelle: false, multiplikator: 2 }
+    const result = berechneAbschluss([[position]], { montagekosten: 20, zusatzkosten: 10, rabattProzent: 10, rabattFest: 2, mwstSatz: 19 })
+    expect(result.verkaufVorRabatt).toBe(102)
+    expect(result.rabattGesamt).toBe(12.2)
+    expect(result.nettosumme).toBe(89.8)
+    expect(result.mwstBetrag).toBe(17.06)
+    expect(result.bruttosumme).toBe(106.86)
   })
 })

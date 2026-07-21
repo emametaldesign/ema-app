@@ -11,5 +11,6 @@ export function measurementToPrice(element: TechnicalElement, setting: Calculati
     ohneSchwelle: element.noThreshold,
     multiplikator: setting.factor === 'custom' ? Number(setting.customFactor) : Number(setting.factor),
     zusatzZuschlag: Number(setting.surcharge) || 0,
+    zusatzAbschlag: Number(setting.deduction) || 0,
   }
 }

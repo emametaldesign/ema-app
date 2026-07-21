@@ -39,12 +39,30 @@ export type CalculationSetting = {
   factor: FactorOption
   customFactor: string
   surcharge: string
+  deduction: string
 }
 
 export type CalculationRecord = {
   measurementId: string
   settings: Record<string, CalculationSetting>
+  roomAssembly: Record<string, string>
+  generalAssembly: string
+  additionalCosts: string
+  discountPercent: string
+  discountFixed: string
+  vatRate: 19 | 7 | 0
+  priceDisplay: 'netto' | 'brutto'
+  completed: boolean
   updatedAt: string
+}
+
+export type OfferStatus = 'Entwurf' | 'Versendet' | 'Angenommen' | 'Abgelehnt' | 'Auftrag'
+export type OfferPosition = { id: string; positionNumber: number; room: string; product: string; widthMm: string; heightMm: string; quantity: number; system: string; profile: string; mesh: string; colorInside: string; colorOutside: string; unitPrice: number; totalPrice: number }
+export type Offer = {
+  id: string; offerNumber: string; projectId: string; calculationId: string; customer: string; address: string; projectName: string; offerDate: string
+  positions: OfferPosition[]; assemblyCosts: number; additionalCosts: number; discount: number; netTotal: number; vatRate: number; vatAmount: number; grossTotal: number
+  subject: string; introduction: string; paymentTerms: string; deliveryTime: string; validity: string; closing: string
+  createdAt: string; updatedAt: string; status: OfferStatus
 }
 
 export const createTechnicalElement = (): TechnicalElement => ({
@@ -60,7 +78,8 @@ export const createMeasurementProject = (): MeasurementProject => {
   return { id: crypto.randomUUID(), projectName: '', customerMode: '', customerName: '', address: '', measureDate: now.slice(0, 10), employee: '', rooms: [createProjectRoom()], status: 'Entwurf', createdAt: now, updatedAt: now }
 }
 
-export const createCalculationSetting = (): CalculationSetting => ({ factor: '3', customFactor: '', surcharge: '' })
+export const createCalculationSetting = (): CalculationSetting => ({ factor: '3', customFactor: '', surcharge: '', deduction: '' })
+export const createCalculationRecord = (measurementId: string): CalculationRecord => ({ measurementId, settings: {}, roomAssembly: {}, generalAssembly: '', additionalCosts: '', discountPercent: '', discountFixed: '', vatRate: 19, priceDisplay: 'netto', completed: false, updatedAt: '' })
 
 export function normalizePositions(project: MeasurementProject): MeasurementProject {
   let position = 1

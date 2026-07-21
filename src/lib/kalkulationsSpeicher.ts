@@ -1,4 +1,4 @@
-import type { CalculationRecord } from '../types/project'
+import { createCalculationRecord, type CalculationRecord } from '../types/project'
 
 const KEY = 'ema:kalkulationen'
 export const CALCULATION_STORAGE_VERSION = 1
@@ -17,7 +17,7 @@ export function loadCalculations(storage: StorageLike = localStorage): Calculati
     if (!raw) return []
     const data = JSON.parse(raw) as Partial<Envelope>
     if (data.version !== CALCULATION_STORAGE_VERSION || !Array.isArray(data.items)) return []
-    return data.items.filter(isRecord)
+    return data.items.filter(isRecord).map((item) => ({ ...createCalculationRecord(item.measurementId), ...item, settings: Object.fromEntries(Object.entries(item.settings).map(([id, setting]) => [id, { ...setting, deduction: setting.deduction ?? '' }])) }))
   } catch { return [] }
 }
 

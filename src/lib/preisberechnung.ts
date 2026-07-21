@@ -21,6 +21,7 @@ export type PreisPosition = {
   system: string
   ohneSchwelle: boolean
   zusatzZuschlag?: number
+  zusatzAbschlag?: number
 }
 
 export type PositionsErgebnis = {
@@ -57,6 +58,9 @@ export type GesamtErgebnis = SummenErgebnis & {
   anzahlRaeume: number
 }
 
+export type AbschlussOptionen = { montagekosten: number; zusatzkosten: number; rabattProzent: number; rabattFest: number; mwstSatz: 19 | 7 | 0 }
+export type AbschlussErgebnis = GesamtErgebnis & { verkaufVorRabatt: number; rabattGesamt: number; montagekosten: number; zusatzkosten: number; nettosumme: number; mwstBetrag: number; bruttosumme: number }
+
 export function rundeGeldbetrag(wert: number): number {
   return Math.round((wert + Number.EPSILON) * 100) / 100
 }
@@ -78,7 +82,8 @@ export function berechnePosition(position: PreisPosition): PositionsErgebnis {
 
   const laufendeMeterProElement = ((position.breiteCm + position.hoeheCm) * 2) / 100
   const zusatzZuschlag = position.zusatzZuschlag && position.zusatzZuschlag > 0 ? position.zusatzZuschlag : 0
-  const einkaufProElement = rundeGeldbetrag(laufendeMeterProElement * preisProMeter + (position.ohneSchwelle ? ZUSCHLAG_OHNE_SCHWELLE : 0) + zusatzZuschlag)
+  const zusatzAbschlag = position.zusatzAbschlag && position.zusatzAbschlag > 0 ? position.zusatzAbschlag : 0
+  const einkaufProElement = rundeGeldbetrag(Math.max(0, laufendeMeterProElement * preisProMeter + (position.ohneSchwelle ? ZUSCHLAG_OHNE_SCHWELLE : 0) + zusatzZuschlag - zusatzAbschlag))
 
   return {
     gueltig: true,
@@ -155,4 +160,16 @@ export function berechneGesamt(raeume: PreisPositionMitMultiplikator[][]): Gesam
     verkaufGesamt,
     gewinnGesamt: rundeGeldbetrag(verkaufGesamt - einkaufGesamt),
   }
+}
+
+export function berechneAbschluss(raeume: PreisPositionMitMultiplikator[][], optionen: AbschlussOptionen): AbschlussErgebnis {
+  const basis = berechneGesamt(raeume)
+  const montagekosten = Math.max(0, optionen.montagekosten || 0)
+  const zusatzkosten = Math.max(0, optionen.zusatzkosten || 0)
+  const verkaufVorRabatt = rundeGeldbetrag(basis.verkaufGesamt + montagekosten + zusatzkosten)
+  const prozentRabatt = verkaufVorRabatt * Math.min(100, Math.max(0, optionen.rabattProzent || 0)) / 100
+  const rabattGesamt = rundeGeldbetrag(Math.min(verkaufVorRabatt, prozentRabatt + Math.max(0, optionen.rabattFest || 0)))
+  const nettosumme = rundeGeldbetrag(verkaufVorRabatt - rabattGesamt)
+  const mwstBetrag = rundeGeldbetrag(nettosumme * optionen.mwstSatz / 100)
+  return { ...basis, verkaufVorRabatt, rabattGesamt, montagekosten, zusatzkosten, nettosumme, mwstBetrag, bruttosumme: rundeGeldbetrag(nettosumme + mwstBetrag), gewinnGesamt: rundeGeldbetrag(nettosumme - basis.einkaufGesamt) }
 }

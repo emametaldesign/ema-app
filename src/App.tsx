@@ -3,6 +3,7 @@ import { AppShell } from './components/AppShell'
 import { DashboardPage } from './pages/DashboardPage'
 import { CalculationPage } from './pages/CalculationPage'
 import { MeasurementPage } from './pages/MeasurementPage'
+import { OffersPage } from './pages/OffersPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 
 export default function App() {
@@ -24,7 +25,7 @@ export default function App() {
         />
         <Route
           path="angebote"
-          element={<PlaceholderPage eyebrow="Vertrieb" title="Angebote" description="Angebote erstellen, organisieren und ihren aktuellen Status einsehen." />}
+          element={<OffersPage />}
         />
         <Route
           path="einstellungen"

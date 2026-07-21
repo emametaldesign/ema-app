@@ -36,3 +36,11 @@ button:focus-visible {
   outline: 3px solid rgb(242 140 40 / 35%);
   outline-offset: 2px;
 }
+
+@media print {
+  body { background: white; }
+  aside, header, .no-print { display: none !important; }
+  main { max-width: none !important; padding: 0 !important; }
+  .lg\:pl-72 { padding-left: 0 !important; }
+  .print-area { border: 0 !important; box-shadow: none !important; max-width: none !important; }
+}
